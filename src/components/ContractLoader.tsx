@@ -132,9 +132,9 @@ export function ContractLoader({ onLoaded, loadedAddress, onReset }: Props) {
 
       const contract: LoadedContract = {
         address: trimmed,
-        contractName: data.contractName,
+        contractName: data.contractName ?? null,
         isProxy: !!data.isProxy,
-        implementationAddress: data.implementationAddress,
+        implementationAddress: data.implementationAddress ?? null,
         abi,
         name,
         symbol,
