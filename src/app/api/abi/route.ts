@@ -6,10 +6,22 @@ import { isAddress } from "viem";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ETHERSCAN_BASE = "https://api.etherscan.io/api";
+// Etherscan API V2 — unified multichain endpoint. V1 was deprecated Aug 15, 2025.
+// Ethereum mainnet = chain id 1.
+const ETHERSCAN_BASE = "https://api.etherscan.io/v2/api";
+const CHAIN_ID = 1;
 
 export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get("address");
+
+  // simple healthcheck: /api/abi?health=1
+  if (req.nextUrl.searchParams.get("health") === "1") {
+    return NextResponse.json({
+      ok: true,
+      hasEtherscanKey: Boolean(process.env.ETHERSCAN_API_KEY),
+      now: new Date().toISOString(),
+    });
+  }
 
   if (!address || !isAddress(address)) {
     return NextResponse.json(
@@ -32,23 +44,39 @@ export async function GET(req: NextRequest) {
   try {
     // 1) fetch source (so we also get contract name & implementation address for proxies)
     const sourceRes = await fetch(
-      `${ETHERSCAN_BASE}?module=contract&action=getsourcecode&address=${address}&apikey=${key}`,
+      `${ETHERSCAN_BASE}?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${address}&apikey=${key}`,
       { cache: "no-store" },
     );
     const sourceJson = (await sourceRes.json()) as {
       status: string;
       message: string;
-      result: Array<{
-        ContractName?: string;
-        ABI?: string;
-        Proxy?: string;
-        Implementation?: string;
-      }>;
+      result:
+        | Array<{
+            ContractName?: string;
+            ABI?: string;
+            Proxy?: string;
+            Implementation?: string;
+          }>
+        | string;
     };
 
-    if (sourceJson.status !== "1" || !sourceJson.result?.[0]) {
+    // Etherscan returns status "0" + message "NOTOK" for API-level errors (bad
+    // key, rate limit, etc). The actual reason is in `result` (a string in
+    // that case), not `message`.
+    if (sourceJson.status !== "1") {
+      const detail =
+        typeof sourceJson.result === "string"
+          ? sourceJson.result
+          : sourceJson.message || "Unknown Etherscan error";
       return NextResponse.json(
-        { error: sourceJson.message || "Contract not found on Etherscan" },
+        { error: `Etherscan: ${detail}`, message: sourceJson.message },
+        { status: 502 },
+      );
+    }
+
+    if (!Array.isArray(sourceJson.result) || !sourceJson.result[0]) {
+      return NextResponse.json(
+        { error: "Contract not found on Etherscan" },
         { status: 404 },
       );
     }
@@ -65,7 +93,7 @@ export async function GET(req: NextRequest) {
     ) {
       implementationAddress = entry.Implementation;
       const implRes = await fetch(
-        `${ETHERSCAN_BASE}?module=contract&action=getabi&address=${implementationAddress}&apikey=${key}`,
+        `${ETHERSCAN_BASE}?chainid=${CHAIN_ID}&module=contract&action=getabi&address=${implementationAddress}&apikey=${key}`,
         { cache: "no-store" },
       );
       const implJson = (await implRes.json()) as {
