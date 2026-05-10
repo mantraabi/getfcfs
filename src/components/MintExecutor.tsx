@@ -292,7 +292,7 @@ export function MintExecutor({ contract, config }: Props) {
       <h2 className="mb-1 text-base font-semibold">3. Execute mint</h2>
       <p className="mb-4 text-xs text-zinc-500">
         Manual = one-shot tx you confirm in your wallet. Auto = poll sale status
-        and fire as soon as it's live.
+        and fire as soon as it&apos;s live.
       </p>
 
       <div className="mb-4 rounded-md border border-border bg-black/30 px-3 py-2 text-xs font-mono text-zinc-300">
