@@ -33,9 +33,24 @@ export function ContractLoader({ onLoaded, loadedAddress, onReset }: Props) {
     try {
       // 1) fetch ABI
       const res = await fetch(`/api/abi?address=${trimmed}`);
-      const data = await res.json();
+
+      // Some hosts return HTML for an unknown route → JSON parse would throw.
+      // Read as text first, then try to parse.
+      const raw = await res.text();
+      let data: { abi?: unknown; error?: string; contractName?: string | null; isProxy?: boolean; implementationAddress?: string | null };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        if (res.status === 404) {
+          throw new Error(
+            "API route /api/abi not found on this deployment. Redeploy the latest commit.",
+          );
+        }
+        throw new Error(`Unexpected response (${res.status}): ${raw.slice(0, 120)}`);
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch ABI");
+        throw new Error(data.error || `Failed to fetch ABI (${res.status})`);
       }
 
       const abi = data.abi as Abi;

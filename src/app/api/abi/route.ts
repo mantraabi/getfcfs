@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "viem";
 
-export const runtime = "edge";
+// Use the Node.js runtime — Etherscan fetches are short, and this avoids
+// some edge-runtime quirks (URL parsing, fetch timeouts) on Vercel.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const ETHERSCAN_BASE = "https://api.etherscan.io/api";
 
@@ -20,7 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Server is missing ETHERSCAN_API_KEY. Set it in your environment variables.",
+          "Server is missing ETHERSCAN_API_KEY. Set it in Vercel → Project → Settings → Environment Variables, then redeploy.",
       },
       { status: 500 },
     );
